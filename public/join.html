@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join LLM Cluster</title>
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}`);
+
+        ws.onopen = () => {
+            // Send a message to join the network
+            ws.send(JSON.stringify({ type: 'joinNetwork' }));
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'requestSpecs') {
+                // Send device specs
+                const specs = {
+                    cpu: navigator.hardwareConcurrency || 'Unknown',
+                    memory: navigator.deviceMemory || 'Unknown',
+                    platform: navigator.platform,
+                    userAgent: navigator.userAgent
+                };
+                ws.send(JSON.stringify({ type: 'specs', specs }));
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>You have joined the LLM Cluster!</h1>
+    <p>Your device is now contributing to the network.</p>
+</body>
+</html>
