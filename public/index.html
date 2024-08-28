@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Cluster</title>
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}`);
+        ws.onopen = () => {
+            console.log('Connected to the server');
+            ws.send('Hello, server!');
+        };
+        ws.onmessage = (event) => {
+            console.log('Received:', event.data);
+        };
+    </script>
+</head>
+<body>
+    <h1>Welcome to the LLM Cluster</h1>
+    <p>Your device is now contributing to the cluster.</p>
+</body>
+</html>
