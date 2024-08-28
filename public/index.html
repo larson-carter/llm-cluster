@@ -20,3 +20,82 @@
     <p>Your device is now contributing to the cluster.</p>
 </body>
 </html>
+<script>
+    const ws = new WebSocket(`ws://${window.location.host}`);
+
+    ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        switch (message.type) {
+            case 'welcome':
+                console.log('Connected as peer:', message.peerId);
+                break;
+            case 'offer':
+                handleOffer(message);
+                break;
+            case 'answer':
+                handleAnswer(message);
+                break;
+            case 'candidate':
+                handleCandidate(message);
+                break;
+            default:
+                console.log('Unknown message type:', message.type);
+        }
+    };
+
+    let peerConnection;
+    const config = {
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    function handleOffer(message) {
+        peerConnection = new RTCPeerConnection(config);
+        peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+        peerConnection.createAnswer().then(answer => {
+            peerConnection.setLocalDescription(answer);
+            ws.send(JSON.stringify({
+                type: 'answer',
+                answer: answer,
+                targetPeerId: message.fromPeerId
+            }));
+        });
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({
+                    type: 'candidate',
+                    candidate: event.candidate,
+                    targetPeerId: message.fromPeerId
+                }));
+            }
+        };
+    }
+
+    function handleAnswer(message) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+    }
+
+    function handleCandidate(message) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+    }
+
+    function startPeerConnection() {
+        peerConnection = new RTCPeerConnection(config);
+        peerConnection.createOffer().then(offer => {
+            peerConnection.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: 'offer', offer }));
+        });
+
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({
+                    type: 'candidate',
+                    candidate: event.candidate
+                }));
+            }
+        };
+    }
+
+    // Start connection when ready (e.g., on button click)
+    document.addEventListener('DOMContentLoaded', startPeerConnection);
+</script>
