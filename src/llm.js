@@ -1,14 +1,18 @@
-const { HfInference } = require('@huggingface/inference');
-const inference = new HfInference('<YOUR_HUGGING_FACE_API_KEY>');
+const { execFile } = require('child_process');
+const path = require('path');
 
-async function runLLMTask(prompt) {
-    const result = await inference.textGeneration({
-        model: 'gpt2',
-        inputs: prompt,
-        parameters: { max_new_tokens: 50 }
+function runLLMTask(prompt) {
+    return new Promise((resolve, reject) => {
+        const scriptPath = path.join(__dirname, 'run_llm.py');
+
+        execFile('python3', [scriptPath, prompt], (error, stdout, stderr) => {
+            if (error) {
+                reject(stderr || error.message);
+            } else {
+                resolve(stdout.trim());
+            }
+        });
     });
-
-    return result.generated_text;
 }
 
 module.exports = { runLLMTask };
