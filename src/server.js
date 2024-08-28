@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { setupSignalingServer } = require('./p2p');
+const { setupSignalingServer, getConnectedPeers } = require('./p2p');
 const { runLLMTask } = require('./llm');
 
 const app = express();
@@ -24,4 +24,12 @@ app.post('/llm-task', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'LLM task failed' });
     }
+});
+
+app.get('/stats', (req, res) => {
+    const connectedPeers = getConnectedPeers();
+    res.json({
+        connectedPeers: connectedPeers.length,
+        peers: connectedPeers
+    });
 });

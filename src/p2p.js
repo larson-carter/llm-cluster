@@ -1,14 +1,14 @@
 const WebSocket = require('ws');
+const os = require('os');
 
-const peers = {}; // Store connected peers
+const peers = {}; // Store connected peers and their specs
 
 function setupSignalingServer(server) {
     const wss = new WebSocket.Server({ server });
 
     wss.on('connection', (ws) => {
         const peerId = generatePeerId();
-        peers[peerId] = ws;
-        ws.send(JSON.stringify({ type: 'welcome', peerId }));
+        ws.peerId = peerId;
 
         ws.on('message', (message) => {
             const parsedMessage = JSON.parse(message);
@@ -18,16 +18,22 @@ function setupSignalingServer(server) {
         ws.on('close', () => {
             delete peers[peerId];
         });
+
+        // Send a request to the client for its specs
+        ws.send(JSON.stringify({ type: 'requestSpecs' }));
     });
 }
 
 function handleSignalingMessage(peerId, message, ws) {
     switch (message.type) {
+        case 'specs':
+            peers[peerId] = { ws, specs: message.specs };
+            break;
         case 'offer':
         case 'answer':
         case 'candidate':
             if (message.targetPeerId && peers[message.targetPeerId]) {
-                peers[message.targetPeerId].send(JSON.stringify({
+                peers[message.targetPeerId].ws.send(JSON.stringify({
                     ...message,
                     fromPeerId: peerId,
                 }));
@@ -42,4 +48,11 @@ function generatePeerId() {
     return Math.random().toString(36).substring(2, 15);
 }
 
-module.exports = { setupSignalingServer };
+function getConnectedPeers() {
+    return Object.keys(peers).map(peerId => ({
+        peerId,
+        specs: peers[peerId].specs,
+    }));
+}
+
+module.exports = { setupSignalingServer, getConnectedPeers };

@@ -8,6 +8,9 @@ const config = {
 ws.onmessage = (event) => {
     const message = JSON.parse(event.data);
     switch (message.type) {
+        case 'requestSpecs':
+            sendSpecs();
+            break;
         case 'welcome':
             console.log('Connected as peer:', message.peerId);
             break;
@@ -30,6 +33,17 @@ ws.onmessage = (event) => {
             console.log('Unknown message type:', message.type);
     }
 };
+
+function sendSpecs() {
+    const specs = {
+        cpu: navigator.hardwareConcurrency || 'Unknown',
+        memory: navigator.deviceMemory || 'Unknown',
+        platform: navigator.platform,
+        userAgent: navigator.userAgent
+    };
+    ws.send(JSON.stringify({ type: 'specs', specs }));
+}
+
 
 function handleOffer(message) {
     peerConnection = new RTCPeerConnection(config);
