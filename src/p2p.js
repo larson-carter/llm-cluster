@@ -26,7 +26,6 @@ function handleSignalingMessage(peerId, message, ws) {
         case 'offer':
         case 'answer':
         case 'candidate':
-            // Relay offer/answer/candidate to the target peer
             if (message.targetPeerId && peers[message.targetPeerId]) {
                 peers[message.targetPeerId].send(JSON.stringify({
                     ...message,

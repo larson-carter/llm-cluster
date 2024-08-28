@@ -6,13 +6,105 @@
     <title>LLM Cluster</title>
     <script>
         const ws = new WebSocket(`ws://${window.location.host}`);
-        ws.onopen = () => {
-            console.log('Connected to the server');
-            ws.send('Hello, server!');
+
+        let peerConnection;
+        const config = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
+
         ws.onmessage = (event) => {
-            console.log('Received:', event.data);
+            const message = JSON.parse(event.data);
+            switch (message.type) {
+                case 'welcome':
+                    console.log('Connected as peer:', message.peerId);
+                    break;
+                case 'offer':
+                    handleOffer(message);
+                    break;
+                case 'answer':
+                    handleAnswer(message);
+                    break;
+                case 'candidate':
+                    handleCandidate(message);
+                    break;
+                case 'task':
+                    handleIncomingTask(message);
+                    break;
+                case 'taskResult':
+                    handleTaskResult(message);
+                    break;
+                default:
+                    console.log('Unknown message type:', message.type);
+            }
         };
+
+        function handleOffer(message) {
+            peerConnection = new RTCPeerConnection(config);
+            peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+            peerConnection.createAnswer().then(answer => {
+                peerConnection.setLocalDescription(answer);
+                ws.send(JSON.stringify({
+                    type: 'answer',
+                    answer: answer,
+                    targetPeerId: message.fromPeerId
+                }));
+            });
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({
+                        type: 'candidate',
+                        candidate: event.candidate,
+                        targetPeerId: message.fromPeerId
+                    }));
+                }
+            };
+        }
+
+        function handleAnswer(message) {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
+        }
+
+        function handleCandidate(message) {
+            peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        }
+
+        let taskQueue = []; // Queue for pending tasks
+        let activeTasks = {}; // Track active tasks
+
+        function distributeTask(task) {
+            if (peerConnection) {
+                peerConnection.send(JSON.stringify(task));
+            } else {
+                taskQueue.push(task);
+            }
+        }
+
+        function handleIncomingTask(task) {
+            // Placeholder: process the task
+            console.log('Received task:', task);
+            const result = task.prompt + ' (processed)'; // Simulate processing
+            peerConnection.send(JSON.stringify({ type: 'taskResult', result }));
+        }
+
+        function handleTaskResult(message) {
+            console.log('Task Result:', message.result);
+        }
+
+        async function sendLLMTask(prompt) {
+            const response = await fetch('/llm-task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt }),
+            });
+            const data = await response.json();
+            console.log('LLM Response:', data.result);
+        }
+
+        // Example usage
+        document.addEventListener('DOMContentLoaded', () => {
+            sendLLMTask('Once upon a time');
+        });
     </script>
 </head>
 <body>
@@ -20,82 +112,3 @@
     <p>Your device is now contributing to the cluster.</p>
 </body>
 </html>
-<script>
-    const ws = new WebSocket(`ws://${window.location.host}`);
-
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        switch (message.type) {
-            case 'welcome':
-                console.log('Connected as peer:', message.peerId);
-                break;
-            case 'offer':
-                handleOffer(message);
-                break;
-            case 'answer':
-                handleAnswer(message);
-                break;
-            case 'candidate':
-                handleCandidate(message);
-                break;
-            default:
-                console.log('Unknown message type:', message.type);
-        }
-    };
-
-    let peerConnection;
-    const config = {
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    };
-
-    function handleOffer(message) {
-        peerConnection = new RTCPeerConnection(config);
-        peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
-        peerConnection.createAnswer().then(answer => {
-            peerConnection.setLocalDescription(answer);
-            ws.send(JSON.stringify({
-                type: 'answer',
-                answer: answer,
-                targetPeerId: message.fromPeerId
-            }));
-        });
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                ws.send(JSON.stringify({
-                    type: 'candidate',
-                    candidate: event.candidate,
-                    targetPeerId: message.fromPeerId
-                }));
-            }
-        };
-    }
-
-    function handleAnswer(message) {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(message.answer));
-    }
-
-    function handleCandidate(message) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-    }
-
-    function startPeerConnection() {
-        peerConnection = new RTCPeerConnection(config);
-        peerConnection.createOffer().then(offer => {
-            peerConnection.setLocalDescription(offer);
-            ws.send(JSON.stringify({ type: 'offer', offer }));
-        });
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                ws.send(JSON.stringify({
-                    type: 'candidate',
-                    candidate: event.candidate
-                }));
-            }
-        };
-    }
-
-    // Start connection when ready (e.g., on button click)
-    document.addEventListener('DOMContentLoaded', startPeerConnection);
-</script>
